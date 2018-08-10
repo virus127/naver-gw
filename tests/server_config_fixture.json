@@ -1,0 +1,50 @@
+{
+    "name": "ServerList",
+    "children": [
+        {
+            "name": "ALPHA",
+            "children": [
+                {
+                    "name": "API",
+                    "children": [
+                        {
+                            "name": "CGKDAAP7501"
+                        }
+                    ]
+                },
+                {
+                    "name": "BATTLE",
+                    "children": [
+                        {
+                            "name": "CGKDABS7501"
+                        }
+                    ]
+                },
+                {
+                    "name": "NOTIFICATION",
+                    "children": [
+                        {
+                            "name": "CGKDANT7501"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "BETA",
+            "children": [
+                {
+                    "name": "API",
+                    "children": [
+                        {
+                            "name": "CGKDBAP7501"
+                        },
+                        {
+                            "name": "CGKDBAP7502"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
