@@ -8,11 +8,11 @@ try:
     import urwid
 except ImportError:
     import sys
+
     root_dir = os.path.dirname(os.path.abspath(__file__))
     urwid_dir = os.path.join(root_dir, 'urwid')
     sys.path.append(urwid_dir)
     import urwid
-
 
 # 'class name', 'color', 'background-color'
 palette = [
@@ -28,15 +28,18 @@ palette = [
     ('server_list.node focus', urwid.LIGHT_BLUE, urwid.BLACK)
 ]
 
+main_loop = urwid.MainLoop(None, palette, handle_mouse=False)
+
 
 class GWKitApplication:
-    def __init__(self, server_config, username='irteam', keyword=''):
+    def __init__(self, server_config, test_mode, username='irteam', keyword='', *args, **kwargs):
         self._username = username
         self._keyword = keyword
-        self.server_config = json.load(file(server_config))
+        self._server_config = json.load(file(server_config))
+        self._test_mode = test_mode
 
     def get_server_list(self, keyword=None):
-        return self.server_config
+        return self._server_config
 
     @property
     def username(self):
@@ -47,14 +50,18 @@ class GWKitApplication:
         return self._keyword
 
     def rlogin(self, hostname):
-        command = 'rlogin -l {} {}'.format(self.username, hostname)
+        command = 'rlogin -l {0} {1}'.format(self.username, hostname)
         os.system(command)
+        main_loop.screen.clear()
 
     def append_keyword(self, key):
         self._keyword = self._keyword + key
 
     def clear_keyword(self):
         self._keyword = ''
+
+    def delete_keyword(self):
+        self._keyword = self._keyword[0:-1]
 
     def rotate_username(self):
         self._username = 'irteam' if self._username == 'irteamsu' else 'irteamsu'
@@ -91,7 +98,7 @@ class ServerWidget(urwid.TreeWidget):
     def keypress(self, size, key):
         if self.is_leaf:
             if key == 'enter':
-                gwApp.rlogin(self.get_node().name)
+                gw_app.rlogin(self.get_node().name)
             else:
                 return key
 
@@ -164,48 +171,51 @@ class ServerTreeListBox(urwid.WidgetWrap):
         self.server_list_box.body = self.server_list_walker
 
 
-class GWKit(urwid.WidgetWrap):
+class GWKit(urwid.Frame):
     signals = ['keyword_change', 'username_change']
 
     def __init__(self, *args, **kwargs):
         title_bar = urwid.AttrMap(urwid.Padding(urwid.Text('GWKit', align=urwid.CENTER)), 'title')
-        self.status_bar = StatusBar(gwApp.username, gwApp.keyword)
+        self.status_bar = StatusBar(gw_app.username, gw_app.keyword)
         self.server_list_box = ServerTreeListBox()
-        self.server_list_box.update_list(gwApp.get_server_list())
-        main_layout = urwid.Frame(self.server_list_box, urwid.Pile([title_bar, self.status_bar]))
-        urwid.WidgetWrap.__init__(self, main_layout)
-
+        self.server_list_box.update_list(gw_app.get_server_list())
         self.status_bar.connect_signals(self)
 
-    def run(self):
-        urwid.set_encoding('UTF-8')
-        loop = urwid.MainLoop(self, palette, unhandled_input=self.handle_global_input, handle_mouse=False)
-        loop.run()
+        super(GWKit, self).__init__(self.server_list_box, urwid.Pile([title_bar, self.status_bar]))
 
-    def handle_global_input(self, key):
-        if key == 'enter':
-            return key
+    def keypress(self, size, key):
+        if key == 'backspace':
+            gw_app.delete_keyword()
+            self._emit('keyword_change', gw_app.keyword)
+
+        if not len(key) == 1 and not key.startswith('ctrl'):
+            return super(GWKit, self).keypress(size, key)
 
         if key.isalnum():
-            gwApp.append_keyword(key)
-            self._emit('keyword_change', gwApp.keyword)
+            gw_app.append_keyword(key)
+            self._emit('keyword_change', gw_app.keyword)
         elif key == 'ctrl k':
-            gwApp.clear_keyword()
-            self._emit('keyword_change', gwApp.keyword)
+            gw_app.clear_keyword()
+            self._emit('keyword_change', gw_app.keyword)
         elif key == 'ctrl _':
-            # TODO: rotate rlogin user
-            gwApp.rotate_username()
-            self._emit('username_change', gwApp.username)
+            gw_app.rotate_username()
+            self._emit('username_change', gw_app.username)
+        return key
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GWKit')
     parser.add_argument('-c', metavar='CONFIG_PATH', type=str, help='path to server list config file',
                         default='tests/server_config_fixture.json', dest='server_config')
+    parser.add_argument('-t', type=bool, help='enable test mode', default=False, dest='test_mode')
     parsed_args = vars(parser.parse_args())
 
     try:
-        gwApp = GWKitApplication(**parsed_args)
-        GWKit(**parsed_args).run()
+        urwid.set_encoding('UTF-8')
+        gw_app = GWKitApplication(**parsed_args)
+        gw_kit = GWKit(**parsed_args)
+        main_loop = urwid.MainLoop(gw_kit, palette, handle_mouse=False)
+        main_loop.run()
+
     except KeyboardInterrupt, err:
         pass
