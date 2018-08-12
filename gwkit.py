@@ -38,6 +38,9 @@ class GWKitApplication:
         self._server_config = json.load(file(server_config))
         self._test_mode = test_mode
 
+    def initialize(self):
+        self._kinit()
+
     def get_server_list(self, keyword=None):
         return self._server_config
 
@@ -65,6 +68,9 @@ class GWKitApplication:
 
     def rotate_username(self):
         self._username = 'irteam' if self._username == 'irteamsu' else 'irteamsu'
+
+    def _kinit(self):
+        os.system('kinit')
 
 
 class StatusBar(urwid.WidgetWrap):
@@ -213,6 +219,7 @@ if __name__ == '__main__':
     try:
         urwid.set_encoding('UTF-8')
         gw_app = GWKitApplication(**parsed_args)
+        gw_app.initialize()
         gw_kit = GWKit(**parsed_args)
         main_loop = urwid.MainLoop(gw_kit, palette, handle_mouse=False)
         main_loop.run()
