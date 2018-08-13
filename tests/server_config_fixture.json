@@ -1,50 +1,27 @@
-{
-    "name": "ServerList",
-    "children": [
-        {
-            "name": "ALPHA",
-            "children": [
-                {
-                    "name": "API",
-                    "children": [
-                        {
-                            "name": "CGKDAAP7501"
-                        }
-                    ]
-                },
-                {
-                    "name": "BATTLE",
-                    "children": [
-                        {
-                            "name": "CGKDABS7501"
-                        }
-                    ]
-                },
-                {
-                    "name": "NOTIFICATION",
-                    "children": [
-                        {
-                            "name": "CGKDANT7501"
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "BETA",
-            "children": [
-                {
-                    "name": "API",
-                    "children": [
-                        {
-                            "name": "CGKDBAP7501"
-                        },
-                        {
-                            "name": "CGKDBAP7502"
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
-}
+[
+  {
+    "hostname": "CGKDAAP7501",
+    "tags": ["ALPHA", "API"]
+  },
+  {
+    "hostname": "CGKDABS7501",
+    "tags": ["ALPHA", "BATTLE"]
+  },
+  {
+    "hostname": "CGKDANT7501",
+    "tags": ["ALPHA", "NOTI"]
+  },
+  {
+    "hostname": "CGKDBAP7501",
+    "tags": ["BETA", "API"]
+  },
+  {
+    "hostname": "CGKDBAP7502",
+    "tags": ["BETA", "API"]
+  },
+  {
+    "hostname": "cdevndeploy01.lineplus.nfra.io",
+    "alias": "JENKINS01",
+    "tags": ["BUILD"]
+  }
+]

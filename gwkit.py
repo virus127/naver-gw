@@ -2,9 +2,10 @@
 
 import argparse
 import json
-import os
-import log
 import logging
+import os
+
+import log
 
 try:
     import urwid
@@ -28,12 +29,32 @@ palette = [
 
     ('text.important', urwid.WHITE, urwid.BLACK, 'standout'),
 
-    ('server_list.parent_node', urwid.LIGHT_GRAY, urwid.BLACK),
-    ('server_list.node', urwid.WHITE, urwid.BLACK),
-    ('server_list.node focus', urwid.LIGHT_BLUE, urwid.BLACK)
+    ('server_list.item', urwid.WHITE, urwid.BLACK),
+    ('server_list.item focus', urwid.LIGHT_BLUE, urwid.BLACK),
 ]
 
 main_loop = urwid.MainLoop(None, palette, handle_mouse=False)
+
+
+class ServerData:
+    def __init__(self, hostname, alias=None, tags=()):
+        self._hostname = hostname
+        self._alias = alias
+        self._tags = tags
+
+    @property
+    def name(self):
+        if self._alias:
+            return self._alias
+        return self._hostname
+
+    @property
+    def hostname(self):
+        return self._hostname
+
+    @property
+    def tags(self):
+        return ', '.join(self._tags)
 
 
 class GWKitApplication:
@@ -42,14 +63,14 @@ class GWKitApplication:
     def __init__(self, server_config, test_mode, username='irteam', keyword='', *args, **kwargs):
         self._username = username
         self._keyword = keyword
-        self._server_config = json.load(file(server_config))
+        self._server_list = self._parse_server_list(server_config)
         self._test_mode = test_mode
 
     def initialize(self):
         self._kinit()
 
     def get_server_list(self, keyword=None):
-        return self._server_config
+        return self._server_list
 
     @property
     def username(self):
@@ -85,6 +106,12 @@ class GWKitApplication:
             os.system(command)
         main_loop.screen.clear()
 
+    def _parse_server_list(self, server_config):
+        logger.debug('try loading server config from {0}'.format(server_config))
+        server_list = json.load(file(server_config))
+        logger.debug('parsed server list - {0}'.format(server_list))
+        return server_list
+
 
 class StatusBar(urwid.WidgetWrap):
     def __init__(self, username='', keyword=''):
@@ -107,87 +134,74 @@ class StatusBar(urwid.WidgetWrap):
         self.keyword_edit.set_edit_text(keyword)
 
 
-class ServerWidget(urwid.TreeWidget):
-    def get_display_text(self):
-        return self.get_node().name
+class ServerListItem(urwid.WidgetWrap):
+    logger = logging.getLogger('gwkit.ServerListItem')
+
+    CHECK_MARK_TEXT = '\xE2\x9C\x94'
+    # CHECK_MARK_TEXT = u'한글'
+
+    def __init__(self, server_data):
+        self._server_data = server_data
+        self._selected = False
+
+        self._checkbox_text = urwid.Text('')
+        self._hostname_text = urwid.AttrWrap(urwid.Text(self._server_data.name, wrap='clip'), 'server_list.item', 'server_list.item focus')
+        hostname_wrap = urwid.Padding(self._hostname_text, left=1, right=1)
+        tags_text = urwid.Text(self._server_data.tags)
+        columns = [
+            (3, urwid.Padding(self._checkbox_text, left=1, right=1)),
+            (24, hostname_wrap),
+            tags_text,
+        ]
+
+        columns = urwid.Columns(columns, focus_column=1)
+        urwid.WidgetWrap.__init__(self, columns)
 
     def selectable(self):
         return True
 
     def keypress(self, size, key):
-        if self.is_leaf:
-            if key == 'enter':
-                gw_app.rlogin(self.get_node().name)
-            else:
-                return key
-
-        if key in ('+', 'right') and not self.expanded:
-            self.expanded = True
-            self.update_expanded_icon()
-        elif key in ('-', 'left') and self.expanded:
-            self.expanded = False
-            self.update_expanded_icon()
-        elif self._w.selectable():
-            return self.__super.keypress(size, key)
+        if key == 'enter':
+            gw_app.rlogin(self._server_data.hostname)
+        elif key == ' ':
+            self.logger.debug('selecting host - {0}'.format(self._server_data.hostname))
+            self._toggle_selected()
         else:
             return key
 
+    def unselected(self):
+        self._selected = False
+        self._update_checkbox()
 
-class ServerDataPropertiesMixin:
-    @property
-    def name(self):
-        return self.get_value()['name']
+    def _toggle_selected(self):
+        self._selected = not self._selected
+        self._update_checkbox()
 
-    @property
-    def children(self):
-        return self.get_value().get('children', [])
-
-    @property
-    def children_size(self):
-        return len(self.children)
-
-
-class ServerNode(urwid.TreeNode, ServerDataPropertiesMixin):
-    def load_widget(self):
-        return urwid.AttrWrap(ServerWidget(self), 'server_list.node', 'server_list.node focus')
-
-
-class ServerParentNode(urwid.ParentNode, ServerDataPropertiesMixin):
-    def __init__(self, data, container=None, *args, **kwargs):
-        super(ServerParentNode, self).__init__(data, *args, **kwargs)
-        self.container = container
-
-    def load_widget(self):
-        return urwid.AttrWrap(ServerWidget(self), 'server_list.parent_node')
-
-    def load_child_keys(self):
-        return range(self.children_size)
-
-    def load_child_node(self, key):
-        child_data = self.children[key]
-        child_depth = self.get_depth() + 1
-        if 'children' in child_data:
-            child_class = ServerParentNode
+    def _update_checkbox(self):
+        if self._selected:
+            self._checkbox_text.set_text(self.CHECK_MARK_TEXT)
         else:
-            child_class = ServerNode
-        return child_class(child_data, parent=self, key=key, depth=child_depth)
+            self._checkbox_text.set_text('')
 
 
-class ServerTreeListBox(urwid.WidgetWrap):
+class ServerListBox(urwid.WidgetWrap):
     def __init__(self):
-        self.server_list = {'name': 'no name'}
-        self.root_node = ServerNode(self.server_list)
-        self.server_list_walker = urwid.TreeWalker(self.root_node)
-        self.server_list_box = urwid.TreeListBox(self.server_list_walker)
-        container = urwid.LineBox(self.server_list_box, "Server List", title_align=urwid.LEFT)
-
+        self._list_box = urwid.ListBox(urwid.SimpleFocusListWalker([]))
+        container = urwid.LineBox(self._list_box, 'Server List')
         urwid.WidgetWrap.__init__(self, container)
 
-    def update_list(self, server_list):
-        self.server_list = server_list
-        self.root_node = ServerParentNode(server_list)
-        self.server_list_walker = urwid.TreeWalker(self.root_node)
-        self.server_list_box.body = self.server_list_walker
+    def update_list(self, server_data_list):
+        server_list_items = [ServerListItem(ServerData(**server_data)) for server_data in server_data_list]
+        self._list_box.body = urwid.SimpleFocusListWalker(server_list_items)
+
+    def keypress(self, size, key):
+        if key == 'ctrl l':
+            self._unselect_all()
+        return super(ServerListBox, self).keypress(size, key)
+
+    def _unselect_all(self):
+        for widget in self._list_box.body:
+            widget.unselected()
 
 
 class GWKit(urwid.Frame):
@@ -198,7 +212,7 @@ class GWKit(urwid.Frame):
     def __init__(self, *args, **kwargs):
         title_bar = urwid.AttrMap(urwid.Padding(urwid.Text('GWKit', align=urwid.CENTER)), 'title')
         self.status_bar = StatusBar(gw_app.username, gw_app.keyword)
-        self.server_list_box = ServerTreeListBox()
+        self.server_list_box = ServerListBox()
         self.server_list_box.update_list(gw_app.get_server_list())
         self.status_bar.connect_signals(self)
 
@@ -210,11 +224,7 @@ class GWKit(urwid.Frame):
         if key == 'backspace':
             gw_app.delete_keyword()
             self._emit('keyword_change', gw_app.keyword)
-
-        if not len(key) == 1 and not key.startswith('ctrl'):
-            return super(GWKit, self).keypress(size, key)
-
-        if key.isalnum():
+        elif len(key) == 1 and key.isalnum():
             gw_app.append_keyword(key)
             self._emit('keyword_change', gw_app.keyword)
         elif key == 'ctrl k':
@@ -223,7 +233,8 @@ class GWKit(urwid.Frame):
         elif key == 'ctrl _':
             gw_app.rotate_username()
             self._emit('username_change', gw_app.username)
-        return key
+        else:
+            return super(GWKit, self).keypress(size, key)
 
 
 if __name__ == '__main__':
