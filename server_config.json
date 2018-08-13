@@ -1,0 +1,11 @@
+[
+  {
+    "hostname": "HOST_NAME",
+    "tags": ["THE", "TAGS", "WILL", "BE", "DISPLAYED", "COMMA", "SEPARATED", "AND", "USED", "FOR", "SEARCH"]
+  },
+  {
+    "hostname": "MEANINGLESS_LONG_HOST_NAME_CAN_BE_DIFFICULT_TO_READ",
+    "alias": "ALIAS_OF_HOSTNAME",
+    "tags": ["TAG1", "TAG2"]
+  }
+]

@@ -60,11 +60,16 @@ class ServerData:
 class GWKitApplication:
     logger = logging.getLogger('gwkit.GWKitApplication')
 
-    def __init__(self, server_config, test_mode, username='irteam', keyword='', *args, **kwargs):
-        self._username = username
-        self._keyword = keyword
+    def __init__(self, server_config, username_config, test_mode, keyword='', *args, **kwargs):
+        self._username_index = 0
         self._server_list = self._parse_server_list(server_config)
+        self._username_list = self._parse_username_list(username_config)
         self._test_mode = test_mode
+        self._username = ''
+        self._keyword = keyword
+
+        self.rotate_username()
+
 
     def initialize(self):
         self._kinit()
@@ -94,7 +99,8 @@ class GWKitApplication:
         self._keyword = self._keyword[0:-1]
 
     def rotate_username(self):
-        self._username = 'irteam' if self._username == 'irteamsu' else 'irteamsu'
+        self._username = self._username_list[self._username_index]
+        self._username_index = (self._username_index + 1) % len(self._username_list)
 
     def _kinit(self):
         command = 'kinit'
@@ -107,10 +113,16 @@ class GWKitApplication:
         main_loop.screen.clear()
 
     def _parse_server_list(self, server_config):
-        logger.debug('try loading server config from {0}'.format(server_config))
+        self.logger.debug('try loading server config from {0}'.format(server_config))
         server_list = json.load(file(server_config))
-        logger.debug('parsed server list - {0}'.format(server_list))
+        self.logger.debug('parsed server list - {0}'.format(server_list))
         return server_list
+
+    def _parse_username_list(self, username_config):
+        self.logger.debug('try loading username config from {0}'.format(username_config))
+        username_list = json.load(file(username_config))
+        self.logger.debug('parsed username list - {0}'.format(username_list))
+        return username_list
 
 
 class StatusBar(urwid.WidgetWrap):
@@ -138,7 +150,6 @@ class ServerListItem(urwid.WidgetWrap):
     logger = logging.getLogger('gwkit.ServerListItem')
 
     CHECK_MARK_TEXT = '\xE2\x9C\x94'
-    # CHECK_MARK_TEXT = u'한글'
 
     def __init__(self, server_data):
         self._server_data = server_data
@@ -241,8 +252,10 @@ if __name__ == '__main__':
     logger = logging.getLogger('gwkit')
 
     parser = argparse.ArgumentParser(description='GWKit')
-    parser.add_argument('-c', metavar='CONFIG_PATH', type=str, help='path to server list config file',
-                        default='tests/server_config_fixture.json', dest='server_config')
+    parser.add_argument('-s', metavar='SERVER_CONFIG_PATH', type=str, help='path to server list config file',
+                        default='server_config.json', dest='server_config')
+    parser.add_argument('-u', metavar='USERNAME_CONFIG_PATH', type=str, help='path to username list config file',
+                        default='username_config.json', dest='username_config')
     parser.add_argument('-t', help='enable test mode', action='store_true', dest='test_mode')
     parsed_args = vars(parser.parse_args())
 
