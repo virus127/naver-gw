@@ -11,4 +11,6 @@ git submodule update
 ```
 
 ## Running
-```python gwkit.py```
+```
+python gwkit.py
+```
