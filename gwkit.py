@@ -3,6 +3,8 @@
 import argparse
 import json
 import os
+import log
+import logging
 
 try:
     import urwid
@@ -13,6 +15,9 @@ except ImportError:
     urwid_dir = os.path.join(root_dir, 'urwid')
     sys.path.append(urwid_dir)
     import urwid
+
+
+log.setup_logger()
 
 # 'class name', 'color', 'background-color'
 palette = [
@@ -32,6 +37,8 @@ main_loop = urwid.MainLoop(None, palette, handle_mouse=False)
 
 
 class GWKitApplication:
+    logger = logging.getLogger('gwkit.GWKitApplication')
+
     def __init__(self, server_config, test_mode, username='irteam', keyword='', *args, **kwargs):
         self._username = username
         self._keyword = keyword
@@ -54,8 +61,7 @@ class GWKitApplication:
 
     def rlogin(self, hostname):
         command = 'rlogin -l {0} {1}'.format(self.username, hostname)
-        os.system(command)
-        main_loop.screen.clear()
+        self._do_command(command)
 
     def append_keyword(self, key):
         self._keyword = self._keyword + key
@@ -70,7 +76,14 @@ class GWKitApplication:
         self._username = 'irteam' if self._username == 'irteamsu' else 'irteamsu'
 
     def _kinit(self):
-        os.system('kinit')
+        command = 'kinit'
+        self._do_command(command)
+
+    def _do_command(self, command):
+        self.logger.debug('do command - {0}'.format(command))
+        if not self._test_mode:
+            os.system(command)
+        main_loop.screen.clear()
 
 
 class StatusBar(urwid.WidgetWrap):
@@ -178,6 +191,8 @@ class ServerTreeListBox(urwid.WidgetWrap):
 
 
 class GWKit(urwid.Frame):
+    logger = logging.getLogger('gwkit.GWKit')
+
     signals = ['keyword_change', 'username_change']
 
     def __init__(self, *args, **kwargs):
@@ -190,6 +205,8 @@ class GWKit(urwid.Frame):
         super(GWKit, self).__init__(self.server_list_box, urwid.Pile([title_bar, self.status_bar]))
 
     def keypress(self, size, key):
+        self.logger.debug('key pressed - key={0}'.format(key))
+
         if key == 'backspace':
             gw_app.delete_keyword()
             self._emit('keyword_change', gw_app.keyword)
@@ -210,11 +227,15 @@ class GWKit(urwid.Frame):
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger('gwkit')
+
     parser = argparse.ArgumentParser(description='GWKit')
     parser.add_argument('-c', metavar='CONFIG_PATH', type=str, help='path to server list config file',
                         default='tests/server_config_fixture.json', dest='server_config')
-    parser.add_argument('-t', type=bool, help='enable test mode', default=False, dest='test_mode')
+    parser.add_argument('-t', help='enable test mode', action='store_true', dest='test_mode')
     parsed_args = vars(parser.parse_args())
+
+    logger.debug('parsed arguments = {0}'.format(parsed_args))
 
     try:
         urwid.set_encoding('UTF-8')
