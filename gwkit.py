@@ -6,16 +6,9 @@ import logging
 import os
 
 import log
+from helper import load_module
 
-try:
-    import urwid
-except ImportError:
-    import sys
-
-    root_dir = os.path.dirname(os.path.abspath(__file__))
-    urwid_dir = os.path.join(root_dir, 'urwid')
-    sys.path.append(urwid_dir)
-    import urwid
+urwid = load_module('urwid')
 
 
 log.setup_logger()
