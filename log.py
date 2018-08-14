@@ -29,7 +29,7 @@ DEFAULT_LOG_CONFIG = {
         },
     },
     'loggers': {
-        'gwkit': {
+        'root': {
             'level': 'DEBUG',
             'handlers': ['file']
         },
@@ -40,4 +40,9 @@ DEFAULT_LOG_CONFIG = {
 def setup_logger(log_config=None):
     if not log_config:
         log_config = DEFAULT_LOG_CONFIG
-    logging.config.dictConfig(log_config)
+
+    # TODO: change to use fileConfig only?
+    try:
+        logging.config.dictConfig(log_config)
+    except AttributeError:  # in python 2.6 there is no dictConfig
+        logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
