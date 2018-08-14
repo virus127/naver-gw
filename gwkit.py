@@ -9,9 +9,11 @@ import log
 from helper import load_module
 
 urwid = load_module('urwid')
+trie = load_module('pygtrie')
 
 
 log.setup_logger()
+
 
 # 'class name', 'color', 'background-color'
 palette = [
@@ -31,23 +33,22 @@ main_loop = urwid.MainLoop(None, palette, handle_mouse=False)
 
 class ServerData:
     def __init__(self, hostname, alias=None, tags=()):
-        self._hostname = hostname
-        self._alias = alias
-        self._tags = tags
+        self.hostname = hostname
+        self.alias = alias
+        self.tag_list = tags
 
     @property
     def name(self):
-        if self._alias:
-            return self._alias
-        return self._hostname
-
-    @property
-    def hostname(self):
-        return self._hostname
+        if self.alias:
+            return self.alias
+        return self.hostname
 
     @property
     def tags(self):
-        return ', '.join(self._tags)
+        return ', '.join(self.tag_list)
+
+    def __repr__(self):
+        return str(self.__dict__)
 
 
 class GWKitApplication:
@@ -55,8 +56,8 @@ class GWKitApplication:
 
     def __init__(self, server_config, username_config, test_mode, keyword='', *args, **kwargs):
         self._username_index = 0
-        self._server_list = self._parse_server_list(server_config)
-        self._username_list = self._parse_username_list(username_config)
+        self._server_index = self._parse_server_config(server_config)
+        self._username_list = self._parse_username_config(username_config)
         self._test_mode = test_mode
         self._username = ''
         self._keyword = keyword
@@ -67,8 +68,16 @@ class GWKitApplication:
     def initialize(self):
         self._kinit()
 
-    def get_server_list(self, keyword=None):
-        return self._server_list
+    def get_server_data_list(self):
+        if self._keyword:
+            generator = self._server_index.itervalues(prefix=self.keyword_upper)
+        else:
+            generator = self._server_index.itervalues()
+
+        try:
+            return sorted(set(s for s in generator), key=lambda s: s.name)
+        except KeyError:
+            return []
 
     @property
     def username(self):
@@ -77,6 +86,10 @@ class GWKitApplication:
     @property
     def keyword(self):
         return self._keyword
+
+    @property
+    def keyword_upper(self):
+        return self._keyword.upper()
 
     def rlogin(self, hostname):
         command = 'rlogin -l {0} {1}'.format(self.username, hostname)
@@ -105,13 +118,25 @@ class GWKitApplication:
             os.system(command)
         main_loop.screen.clear()
 
-    def _parse_server_list(self, server_config):
+    def _parse_server_config(self, server_config):
         self.logger.debug('try loading server config from {0}'.format(server_config))
-        server_list = json.load(file(server_config))
-        self.logger.debug('parsed server list - {0}'.format(server_list))
-        return server_list
+        server_data_list = [ServerData(**data) for data in json.load(file(server_config))]
+        self.logger.debug('parsed server list - {0}'.format(server_data_list))
+        return self._create_server_index(server_data_list)
 
-    def _parse_username_list(self, username_config):
+    def _create_server_index(self, server_list):
+        """creates trie of uppercased hostname, tags, and alias"""
+
+        index = trie.CharTrie()
+        for server in server_list:
+            index[server.hostname.upper()] = server
+            if server.alias:
+                index[server.alias.upper()] = server
+            for tag in server.tag_list:
+                index[tag.upper()] = server
+        return index
+
+    def _parse_username_config(self, username_config):
         self.logger.debug('try loading username config from {0}'.format(username_config))
         username_list = json.load(file(username_config))
         self.logger.debug('parsed username list - {0}'.format(username_list))
@@ -194,8 +219,13 @@ class ServerListBox(urwid.WidgetWrap):
         container = urwid.LineBox(self._list_box, 'Server List')
         urwid.WidgetWrap.__init__(self, container)
 
-    def update_list(self, server_data_list):
-        server_list_items = [ServerListItem(ServerData(**server_data)) for server_data in server_data_list]
+        self._update_list()
+
+    def connect_signals(self, gwkit):
+        urwid.connect_signal(gwkit, 'keyword_change', self._update_list)
+
+    def _update_list(self, widget=None, keyword=None):
+        server_list_items = [ServerListItem(s) for s in gw_app.get_server_data_list()]
         self._list_box.body = urwid.SimpleFocusListWalker(server_list_items)
 
     def keypress(self, size, key):
@@ -217,8 +247,9 @@ class GWKit(urwid.Frame):
         title_bar = urwid.AttrMap(urwid.Padding(urwid.Text('GWKit', align=urwid.CENTER)), 'title')
         self.status_bar = StatusBar(gw_app.username, gw_app.keyword)
         self.server_list_box = ServerListBox()
-        self.server_list_box.update_list(gw_app.get_server_list())
+
         self.status_bar.connect_signals(self)
+        self.server_list_box.connect_signals(self)
 
         super(GWKit, self).__init__(self.server_list_box, urwid.Pile([title_bar, self.status_bar]))
 

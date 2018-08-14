@@ -4,6 +4,10 @@
     "tags": ["THE", "TAGS", "WILL", "BE", "DISPLAYED", "COMMA", "SEPARATED", "AND", "USED", "FOR", "SEARCH"]
   },
   {
+    "hostname": "HOST_NAME2",
+    "tags": ["TAG1"]
+  },
+  {
     "hostname": "MEANINGLESS_LONG_HOST_NAME_CAN_BE_DIFFICULT_TO_READ",
     "alias": "ALIAS_OF_HOSTNAME",
     "tags": ["TAG1", "TAG2"]

@@ -1,3 +1,6 @@
 [submodule "urwid"]
 	path = urwid
 	url = https://github.com/urwid/urwid
+[submodule "pygtrie"]
+	path = pygtrie
+	url = https://github.com/google/pygtrie.git
