@@ -26,7 +26,7 @@ def get_hostname_and_tag(splitted):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print 'usage : python migrate.py PATH_TO_KNOWN_HOSTS_FILE'
+        print u'usage : python migrate.py PATH_TO_KNOWN_HOSTS_FILE'
         exit(1)
 
     server_data_list = []

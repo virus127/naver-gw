@@ -8,7 +8,7 @@ def load_module(module_name):
     import os
 
     if not module_name:
-        raise Exception('Module name is empty')
+        raise Exception(u'Module name is empty')
 
     root_dir = os.path.dirname(os.path.abspath(__file__))
     module_dir = os.path.join(root_dir, module_name)
