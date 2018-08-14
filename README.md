@@ -14,3 +14,8 @@ git submodule update
 ```
 python gwkit.py
 ```
+
+## Migrating existing data
+```
+python migrate.py LEGACY_GWKIT_DIR/.known_hosts
+```
