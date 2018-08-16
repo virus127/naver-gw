@@ -3,11 +3,7 @@
 import json
 import sys
 
-
-class ServerData:
-    def __init__(self, hostname, tag):
-        self.hostname = hostname
-        self.tags = [tag]
+from model import ServerData
 
 
 class SimpleEncoder(json.JSONEncoder):
@@ -17,7 +13,7 @@ class SimpleEncoder(json.JSONEncoder):
 
 def get_server_data(line):
     hostname, tag = get_hostname_and_tag(line.split())
-    return ServerData(hostname, tag)
+    return ServerData(hostname, None, tag)
 
 
 def get_hostname_and_tag(splitted):

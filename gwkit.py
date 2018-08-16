@@ -7,6 +7,7 @@ import os
 
 import log
 from helper import load_module
+from model import ServerData
 
 urwid = load_module(u'urwid')
 trie = load_module(u'pygtrie')
@@ -29,26 +30,6 @@ palette = [
 ]
 
 main_loop = urwid.MainLoop(None, palette, handle_mouse=False)
-
-
-class ServerData:
-    def __init__(self, hostname, alias=None, tags=()):
-        self.hostname = hostname
-        self.alias = alias
-        self.tag_list = tags
-
-    @property
-    def name(self):
-        if self.alias:
-            return self.alias
-        return self.hostname
-
-    @property
-    def tags(self):
-        return u', '.join(self.tag_list)
-
-    def __repr__(self):
-        return str(self.__dict__)
 
 
 class GWKitApplication:
