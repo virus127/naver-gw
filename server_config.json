@@ -1,15 +1,30 @@
 [
-  {
-    "hostname": "HOST_NAME",
-    "tags": ["THE", "TAGS", "WILL", "BE", "DISPLAYED", "COMMA", "SEPARATED", "AND", "USED", "FOR", "SEARCH"]
-  },
-  {
-    "hostname": "HOST_NAME2",
-    "tags": ["TAG1"]
-  },
-  {
-    "hostname": "MEANINGLESS_LONG_HOST_NAME_CAN_BE_DIFFICULT_TO_READ",
-    "alias": "ALIAS_OF_HOSTNAME",
-    "tags": ["TAG1", "TAG2"]
-  }
+    {
+        "alias": "ALIAS_OF_HOSTNAME", 
+        "hostname": "MEANINGLESS_LONG_HOST_NAME_CAN_BE_DIFFICULT_TO_READ", 
+        "tag_list": [
+            "TAG1", 
+            "TAG2"
+        ]
+    }, 
+    {
+        "alias": "", 
+        "hostname": "HOST_NAME2", 
+        "tag_list": [
+            "TAG1"
+        ]
+    }, 
+    {
+        "alias": "", 
+        "hostname": "HOST_NAME", 
+        "tag_list": [
+            "THE", 
+            "TAGS", 
+            "WILL",
+            "BE", 
+            "USED", 
+            "IN", 
+            "FILTERING"
+        ]
+    }
 ]

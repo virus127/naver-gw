@@ -7,12 +7,97 @@ import os
 
 import log
 from helper import load_module
-from model import ServerData
+from model import ServerData, ServerDataEncoder
 
 urwid = load_module(u'urwid')
 trie = load_module(u'pygtrie')
 
 log.setup_logger()
+
+
+class ClosableOverlay(urwid.Overlay):
+    logger = logging.getLogger('gwkit.ClosableOverlay')
+
+    def __init__(self, title, top_w, *args, **kwargs):
+        content = urwid.LineBox(urwid.Padding(top_w, left=1, right=1), title=title)
+        super(ClosableOverlay, self).__init__(content, *args, **kwargs)
+        if isinstance(top_w, ClosableOverlayContent):
+            self.logger.debug(u'Content is ClosableOverlayContent, connect signals')
+            urwid.connect_signal(top_w, 'close', self.close)
+
+    def keypress(self, size, key):
+        if key == u'esc':
+            self.close()
+        else:
+            return super(ClosableOverlay, self).keypress(size, key)
+
+    def close(self, widget=None):
+        application.discard_popup()
+
+
+class ClosableOverlayContent(urwid.WidgetWrap):
+    signals = ['close']
+
+    def __init__(self, *args, **kwargs):
+        super(ClosableOverlayContent, self).__init__(*args, **kwargs)
+
+    def _close(self):
+        self._emit('close')
+
+
+class ServerDataFormPopup(ClosableOverlayContent):
+    logger = logging.getLogger('gwkit.ServerDataFormPopup')
+
+    def __init__(self, hostname='', alias='', tags='', **kwargs):
+        self._hostname_edit = urwid.Edit(u'Hostname : ', edit_text=hostname)
+        self._alias_edit = urwid.Edit(u'Alias : ', edit_text=alias)
+        self._tags_edit = urwid.Edit(u'Tags : ', edit_text=tags)
+        self.widgets = [self._hostname_edit, self._alias_edit, self._tags_edit]
+        self.list_box = urwid.ListBox(urwid.SimpleFocusListWalker(self.widgets))
+        super(ServerDataFormPopup, self).__init__(self.list_box)
+
+    def __getitem__(self, item):
+        return getattr(self, item)
+
+    def keypress(self, size, key):
+        if key == u'enter':
+            if self._focus_next():
+                return
+            self._submit()
+        else:
+            return super(ServerDataFormPopup, self).keypress(size, key)
+
+    @property
+    def hostname(self):
+        return self._hostname_edit.get_edit_text()
+
+    @property
+    def alias(self):
+        return self._alias_edit.get_edit_text()
+
+    @property
+    def tag_list(self):
+        return self._tags_edit.get_edit_text().split()
+
+    def _focus_next(self):
+        focus_widget, _ = self.list_box.get_focus()
+        next_index = self.widgets.index(focus_widget) + 1
+        if next_index >= len(self.widgets):
+            self.logger.debug(u'There is no next widget')
+            return False
+        self.logger.debug(u'Focusing to the next widget')
+        self.list_box.set_focus(next_index)
+        return True
+
+    def _submit(self):
+        data = dict(
+            hostname=self.hostname,
+            alias=self.alias,
+            tag_list=self.tag_list,
+        )
+        self.logger.debug(u'Submitting changed server data - data:{0}'.format(data))
+        application.upsert_server_data(**data)
+        self._close()
 
 
 class StatusBar(urwid.WidgetWrap):
@@ -67,6 +152,10 @@ class ServerListItem(urwid.WidgetWrap):
         elif key == u' ':
             self.logger.debug(u'selecting host - {0}'.format(self._server_data.hostname))
             self._toggle_selected()
+        elif key == u'ctrl e':
+            self.logger.debug(u'show edit form - host:{0}'.format(self._server_data.hostname))
+            popup = ServerDataFormPopup(self._server_data.hostname, self._server_data.alias, self._server_data.tags)
+            application.show_popup(popup, u'Edit Server Data')
         else:
             return key
 
@@ -132,8 +221,16 @@ class MainController(urwid.Frame):
         elif key == u'ctrl _':
             application.rotate_username()
             self._username_changed()
+        elif key in (u'ctrl n', u'enter'):
+            self.logger.debug(u'show register form')
+            popup = ServerDataFormPopup(application.keyword)
+            application.show_popup(popup, u'Register Server Data')
         else:
             return super(MainController, self).keypress(size, key)
+
+    def server_data_updated(self):
+        self.logger.debug(u'Server data updated refresh UI')
+        self.server_list_box.update_list()
 
     def _keyword_changed(self):
         self.status_bar.update_keyword()
@@ -155,33 +252,44 @@ class GWKitApplication:
         (u'server_list.item focus', urwid.LIGHT_BLUE, urwid.BLACK),
     ]
 
-    def __init__(self, server_config, username_config, test_mode, *args, **kwargs):
+    def __init__(self, server_config_path, username_config_path, test_mode, *args, **kwargs):
         self._username_index = 0
-        self._server_index = self._parse_server_config(server_config)
-        self._username_list = self._parse_username_config(username_config)
+        self._server_config_path = server_config_path
+        self._server_data_index = None
+        self._server_data_map = None
+        self._load_server_config()
+        self._username_list = self._parse_username_config(username_config_path)
         self._test_mode = test_mode
         self._username = ''
         self._keyword = ''
 
         self.rotate_username()
         self.main_loop = None
+        self.main_controller = None
 
     def run(self):
         self._kinit()
         urwid.set_encoding(u'UTF-8')
-        self.main_loop = urwid.MainLoop(MainController(), self.palette, handle_mouse=False)
+        self.main_controller = MainController()
+        self.main_loop = urwid.MainLoop(self.main_controller, self.palette, handle_mouse=False)
         self.main_loop.run()
 
     def get_server_data_list(self):
         if self._keyword:
-            generator = self._server_index.itervalues(prefix=self.keyword_upper)
+            generator = self._server_data_index.itervalues(prefix=self.keyword_upper)
         else:
-            generator = self._server_index.itervalues()
+            generator = self._server_data_index.itervalues()
 
         try:
             return sorted(set(s for s in generator), key=lambda s: s.name)
         except KeyError:
             return []
+
+    def upsert_server_data(self, hostname, alias, tag_list):
+        self._server_data_map[hostname] = ServerData(hostname, alias, tag_list)
+        self._dump_server_config()
+        self._load_server_config()
+        self.main_controller.server_data_updated()
 
     @property
     def username(self):
@@ -213,6 +321,19 @@ class GWKitApplication:
         self._username = self._username_list[self._username_index]
         self._username_index = (self._username_index + 1) % len(self._username_list)
 
+    def show_popup(self, popup_content, popup_title=u''):
+        original_widget = self.main_loop.widget
+        self.main_loop.widget = ClosableOverlay(popup_title, popup_content, original_widget,
+                                                'center', 100,
+                                                'middle', 10)
+
+    def discard_popup(self):
+        overlay = self.main_loop.widget
+        if not isinstance(overlay, urwid.Overlay):
+            self.logger.error(u'CANNOT_DISCARD_NON_OVERLAY_TYPE')
+            return
+        self.main_loop.widget = overlay.bottom_w
+
     def _kinit(self):
         command = u'kinit'
         self._do_command(command)
@@ -224,17 +345,27 @@ class GWKitApplication:
         if redraw:
             self.main_loop.screen.clear()
 
-    def _parse_server_config(self, server_config):
-        self.logger.debug(u'try loading server config from {0}'.format(server_config))
-        server_data_list = [ServerData(**data) for data in json.load(file(server_config))]
-        self.logger.debug(u'parsed server list - {0}'.format(server_data_list))
-        return self._create_server_index(server_data_list)
+    def _load_server_config(self):
+        self._server_data_index, self._server_data_map = self._parse_server_config()
+
+    def _parse_server_config(self):
+        self.logger.debug(u'Try to load server config from {0}'.format(self._server_config_path))
+        with file(self._server_config_path) as f:
+            server_data_map = dict((data['hostname'], ServerData(**data)) for data in json.load(f))
+        self.logger.debug(u'parsed server configs - {0}'.format(server_data_map))
+        return self._create_server_index(server_data_map), server_data_map
+
+    def _dump_server_config(self):
+        self.logger.debug(u'Try to dump server config to {0}'.format(self._server_config_path))
+        with file(self._server_config_path, 'w') as f:
+            json.dump(list(self._server_data_map.itervalues()), f, cls=ServerDataEncoder, indent=4,
+                      sort_keys=True)
 
     def _create_server_index(self, server_list):
         """creates trie of uppercased hostname, tags, and alias"""
 
         index = trie.CharTrie()
-        for server in server_list:
+        for server in server_list.itervalues():
             index[server.hostname.upper()] = server
             if server.alias:
                 index[server.alias.upper()] = server
@@ -254,9 +385,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description=u'GWKit')
     parser.add_argument(u'-s', metavar=u'SERVER_CONFIG_PATH', type=str, help=u'path to server list config file',
-                        default=u'server_config.json', dest=u'server_config')
+                        default=u'server_config.json', dest=u'server_config_path')
     parser.add_argument(u'-u', metavar=u'USERNAME_CONFIG_PATH', type=str, help=u'path to username list config file',
-                        default=u'username_config.json', dest=u'username_config')
+                        default=u'username_config.json', dest=u'username_config_path')
     parser.add_argument(u'-t', help=u'enable test mode', action=u'store_true', dest=u'test_mode')
     parsed_args = vars(parser.parse_args())
 

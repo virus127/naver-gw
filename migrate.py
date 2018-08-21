@@ -3,12 +3,7 @@
 import json
 import sys
 
-from model import ServerData
-
-
-class SimpleEncoder(json.JSONEncoder):
-    def default(self, o):
-        return o.__dict__
+from model import ServerData, ServerDataEncoder
 
 
 def get_server_data(line):
@@ -31,4 +26,4 @@ if __name__ == '__main__':
             server_data = get_server_data(line)
             server_data_list.append(server_data)
 
-    json.dump(server_data_list, file('server_config.json', 'w'), cls=SimpleEncoder, indent=4, sort_keys=True)
+    json.dump(server_data_list, file('server_config.json', 'w'), cls=ServerDataEncoder, indent=4, sort_keys=True)
