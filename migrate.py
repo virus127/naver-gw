@@ -12,7 +12,7 @@ def get_server_data(line):
 
 
 def get_hostname_and_tag(splitted):
-    return splitted[0].strip(), ' '.join(splitted[1:])
+    return splitted[0].strip(), splitted[1:]
 
 
 if __name__ == '__main__':
