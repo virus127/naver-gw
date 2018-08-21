@@ -10,12 +10,14 @@ git submodule init
 git submodule update
 ```
 
+## Migrating existing data
+```
+python migrate.py LEGACY_GWKIT_DIR/.known_hosts
+```
+
 ## Running
 ```
 python gwkit.py
 ```
 
-## Migrating existing data
-```
-python migrate.py LEGACY_GWKIT_DIR/.known_hosts
-```
+It is recommend to fix your `.bashrc` file to make alias like `alias gwkit='python ~/naver-gw/'` for your convenience
