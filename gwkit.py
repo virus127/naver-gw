@@ -6,7 +6,7 @@ import logging
 import os
 
 import log
-from helper import load_module
+from helper import abs_path, load_module
 from model import ServerData, ServerDataEncoder
 
 urwid = load_module(u'urwid')
@@ -385,9 +385,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description=u'GWKit')
     parser.add_argument(u'-s', metavar=u'SERVER_CONFIG_PATH', type=str, help=u'path to server list config file',
-                        default=u'server_config.json', dest=u'server_config_path')
+                        default=abs_path(u'server_config.json'), dest=u'server_config_path')
     parser.add_argument(u'-u', metavar=u'USERNAME_CONFIG_PATH', type=str, help=u'path to username list config file',
-                        default=u'username_config.json', dest=u'username_config_path')
+                        default=abs_path(u'username_config.json'), dest=u'username_config_path')
     parser.add_argument(u'-t', help=u'enable test mode', action=u'store_true', dest=u'test_mode')
     parsed_args = vars(parser.parse_args())
 
