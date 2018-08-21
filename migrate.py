@@ -1,8 +1,10 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 import json
 import sys
 
+from helper import abs_path
 from model import ServerData, ServerDataEncoder
 
 
@@ -26,4 +28,5 @@ if __name__ == '__main__':
             server_data = get_server_data(line)
             server_data_list.append(server_data)
 
-    json.dump(server_data_list, file('server_config.json', 'w'), cls=ServerDataEncoder, indent=4, sort_keys=True)
+    json.dump(server_data_list, file(abs_path('server_config.json'), 'w'), cls=ServerDataEncoder, indent=4,
+              sort_keys=True)
