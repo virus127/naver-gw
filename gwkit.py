@@ -221,7 +221,7 @@ class MainController(urwid.Frame):
         elif key == u'ctrl _':
             application.rotate_username()
             self._username_changed()
-        elif key in (u'ctrl n', u'enter'):
+        elif key == u'ctrl n':
             self.logger.debug(u'show register form')
             popup = ServerDataFormPopup(application.keyword)
             application.show_popup(popup, u'Register Server Data')
