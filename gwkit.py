@@ -340,11 +340,13 @@ class GWKitApplication:
         self._do_command(command)
 
     def _do_command(self, command, redraw=False):
+        if self.main_loop and redraw:
+            self.main_loop.stop()
         self.logger.debug(u'do command - {0}'.format(command))
         if not self._test_mode:
             os.system(command)
-        if redraw:
-            self.main_loop.screen.clear()
+        if self.main_loop and redraw:
+            self.main_loop.start()
 
     def _load_server_config(self):
         self._server_data_index, self._server_data_map = self._parse_server_config()
