@@ -112,6 +112,9 @@ class ServerDataFormPopup(ClosableOverlayContent):
         return True
 
     def _submit(self):
+        if not self.hostname:
+            return
+
         data = dict(
             hostname=self.hostname,
             alias=self.alias,
