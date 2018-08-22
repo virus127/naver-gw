@@ -46,6 +46,27 @@ class ClosableOverlayContent(urwid.WidgetWrap):
         self._emit('close')
 
 
+class RemoteCommandFormPopup(ClosableOverlayContent):
+    logger = logging.getLogger('gwkit.RemoteCommandFormPopup')
+
+    def __init__(self, hostnames=()):
+        self._target_hostnames = hostnames
+        hosts_text = urwid.Text(u'\n'.join(hostnames))
+        self._command_edit = urwid.Edit(u'Command : ')
+        widgets = [hosts_text, self._command_edit]
+        container = urwid.ListBox(urwid.SimpleFocusListWalker(widgets))
+        super(RemoteCommandFormPopup, self).__init__(container)
+
+    def keypress(self, size, key):
+        if key == u'enter':
+            command = self._command_edit.get_edit_text()
+            if command:
+                application.rsh(self._target_hostnames, command)
+            self._close()
+        else:
+            return super(RemoteCommandFormPopup, self).keypress(size, key)
+
+
 class ServerDataFormPopup(ClosableOverlayContent):
     logger = logging.getLogger('gwkit.ServerDataFormPopup')
 
@@ -160,6 +181,14 @@ class ServerListItem(urwid.WidgetWrap):
         else:
             return key
 
+    @property
+    def selected(self):
+        return self._selected
+
+    @property
+    def hostname(self):
+        return self._server_data.hostname
+
     def unselected(self):
         self._selected = False
         self._update_checkbox()
@@ -190,11 +219,20 @@ class ServerListBox(urwid.WidgetWrap):
     def keypress(self, size, key):
         if key == u'ctrl l':
             self._unselect_all()
+        elif key == u'ctrl r':
+            hostnames = self._get_all_selected_hostnames()
+            application.show_popup(RemoteCommandFormPopup(hostnames), u'Remote Command')
         return super(ServerListBox, self).keypress(size, key)
 
     def _unselect_all(self):
         for widget in self._list_box.body:
             widget.unselected()
+
+    def _get_all_selected_hostnames(self):
+        return [widget.hostname for widget in self._get_all_selected()]
+
+    def _get_all_selected(self):
+        return [widget for widget in self._list_box.body if widget.selected]
 
 
 class MainController(urwid.Frame):
@@ -308,6 +346,12 @@ class GWKitApplication:
         command = u'rlogin -l {0} {1}'.format(self.username, hostname)
         self._do_command(u'clear')
         self._do_command(command, True)
+
+    def rsh(self, hostnames, remote_command):
+        self.logger.debug(u'rsh - hostnames:{0}, command:{1}'.format(hostnames, remote_command))
+        for hostname in hostnames:
+            command = u"rsh -l {0} {1} '{2}'".format(self.username, hostname, remote_command)
+            self._do_command(command, True)
 
     def append_keyword(self, key):
         self._keyword = self._keyword + key
