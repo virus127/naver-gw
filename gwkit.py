@@ -238,12 +238,35 @@ class ServerListBox(urwid.WidgetWrap):
 class MainController(urwid.Frame):
     logger = logging.getLogger(u'gwkit.MainController')
 
+    ARROW_UP = u'↑'
+    ARROW_DOWN = u'↓'
+    ENTER = u'↵'
+
+    key_mapping = [
+        (ARROW_UP, u'Up'),
+        (ARROW_DOWN, u'Down'),
+        (ENTER, u'Login'),
+        (u'Space', u'Select'),
+        (u'^R', u'emoteCommand'),
+        (u'^E', u'dit'),
+        (u'^N', u'ew'),
+    ]
+
+    @classmethod
+    def get_key_mapping_text(cls):
+        return u' '.join([cls.gen_key_desc_text(key, desc) for key, desc in cls.key_mapping])
+
+    @staticmethod
+    def gen_key_desc_text(key, desc):
+        return u'[{0}]{1}'.format(key, desc)
+
     def __init__(self):
         title_bar = urwid.AttrMap(urwid.Padding(urwid.Text(u'GWKit', align=urwid.CENTER)), u'title')
         self.status_bar = StatusBar()
         self.server_list_box = ServerListBox()
-
-        super(MainController, self).__init__(self.server_list_box, urwid.Pile([title_bar, self.status_bar]))
+        footer_text = urwid.Text(self.get_key_mapping_text())
+        super(MainController, self).__init__(self.server_list_box, urwid.Pile([title_bar, self.status_bar]),
+                                             footer_text)
 
     def keypress(self, size, key):
         self.logger.debug(u'key pressed - key={0}'.format(key))
